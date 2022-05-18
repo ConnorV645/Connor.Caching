@@ -2,11 +2,24 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+	  <!-- For NuGet -->
+	  <PackageId>Connor.Caching</PackageId>
+	  <Version>6.0.0</Version>
+	  <Authors>Connor Vargas</Authors>
+	  <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	  <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	  <RepositoryUrl>https://github.com/ConnorV645/Connor.Caching</RepositoryUrl>
+	  <PackageProjectUrl>https://github.com/ConnorV645/Connor.Caching</PackageProjectUrl>
+	  <PackageIcon>icon1.png</PackageIcon>
+	  <Description>Easily setup caches using Redis</Description>
+	  <AssemblyVersion>6.0.0.0</AssemblyVersion>
+	  <FileVersion>6.0.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="StackExchange.Redis" Version="2.5.61" />
+	<None Include="icon1.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
