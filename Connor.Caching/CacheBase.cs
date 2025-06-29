@@ -1,25 +1,17 @@
 ﻿using Newtonsoft.Json;
 using StackExchange.Redis;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Connor.Caching
 {
-    public abstract class CacheBase<T, Y> : ICache<T, Y> where T : class
+    public abstract class CacheBase<T, Y>(IConnectionMultiplexer connectionMultiplexer, TimeSpan? defaultExpiration = null) : ICache<T, Y> where Y : notnull
     {
-        protected readonly TimeSpan defaultExpiration;
-        protected readonly IConnectionMultiplexer connectionMultiplexer;
-
-        public CacheBase(IConnectionMultiplexer connectionMultiplexer, TimeSpan? defaultExpiration = null)
-        {
-            this.connectionMultiplexer = connectionMultiplexer;
-            this.defaultExpiration = defaultExpiration ?? TimeSpan.FromHours(1);
-        }
+        protected readonly TimeSpan defaultExpiration = defaultExpiration ?? TimeSpan.FromHours(1);
+        protected readonly IConnectionMultiplexer connectionMultiplexer = connectionMultiplexer;
 
         public abstract string GetKey(Y key);
+        public abstract Y GetValueFromKey(string fullKey);
 
-        public async Task<T> GetFirstOrDefault(Y key)
+        public async Task<T?> GetFirstOrDefaultAsync(Y key)
         {
             if (connectionMultiplexer.IsConnected)
             {
@@ -30,7 +22,7 @@ namespace Connor.Caching
                 }
                 else
                 {
-                    return JsonConvert.DeserializeObject<T>(result);
+                    return JsonConvert.DeserializeObject<T>(result!);
                 }
             }
             else
@@ -39,7 +31,7 @@ namespace Connor.Caching
             }
         }
 
-        public async Task<(T item, TimeSpan? expiration)> GetFirstOrDefaultWithExpiry(Y key)
+        public async Task<(T? item, TimeSpan? expiration)> GetFirstOrDefaultWithExpiryAsync(Y key)
         {
             if (connectionMultiplexer.IsConnected)
             {
@@ -50,7 +42,7 @@ namespace Connor.Caching
                 }
                 else
                 {
-                    return (JsonConvert.DeserializeObject<T>(result.Value), result.Expiry);
+                    return (JsonConvert.DeserializeObject<T>(result.Value!), result.Expiry);
                 }
             }
             else
@@ -59,7 +51,7 @@ namespace Connor.Caching
             }
         }
 
-        public async Task<List<T>> GetList(Y key)
+        public async Task<List<T>?> GetListAsync(Y key)
         {
             if (connectionMultiplexer.IsConnected)
             {
@@ -70,7 +62,7 @@ namespace Connor.Caching
                 }
                 else
                 {
-                    return JsonConvert.DeserializeObject<List<T>>(result);
+                    return JsonConvert.DeserializeObject<List<T>>(result!);
                 }
             }
             else
@@ -79,7 +71,35 @@ namespace Connor.Caching
             }
         }
 
-        public async Task Set(Y key, T item, TimeSpan? expiration = null)
+        public async Task<Dictionary<Y, T>?> GetMultipleFromPatternWithValuesAsync(string fullKeyPattern)
+        {
+            if (connectionMultiplexer.IsConnected)
+            {
+                var finalResult = new Dictionary<Y, T>();
+                foreach (var key in connectionMultiplexer.GetServers().First().Keys(pattern: fullKeyPattern))
+                {
+                    var result = await connectionMultiplexer.GetDatabase().StringGetAsync(key);
+                    if (!result.IsNull)
+                    {
+                        finalResult.TryAdd(GetValueFromKey(key.ToString()), JsonConvert.DeserializeObject<T>(result!)!);
+                    }
+                }
+                return finalResult;
+            }
+            return default;
+        }
+
+        public List<Y>? GetKeysThatHaveValuesFromPattern(string redisPattern)
+        {
+            if (connectionMultiplexer.IsConnected)
+            {
+                var rawKeys = connectionMultiplexer.GetServers().First().Keys(pattern: redisPattern);
+                return [.. rawKeys.Select(x => GetValueFromKey(x.ToString()))];
+            }
+            return default;
+        }
+
+        public async Task SetAsync(Y key, T item, TimeSpan? expiration = null)
         {
             if (connectionMultiplexer.IsConnected)
             {
@@ -88,7 +108,7 @@ namespace Connor.Caching
             }
         }
 
-        public async Task SetList(Y key, List<T> items, TimeSpan? expiration = null)
+        public async Task SetListAsync(Y key, List<T> items, TimeSpan? expiration = null)
         {
             if (connectionMultiplexer.IsConnected)
             {
